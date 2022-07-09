@@ -1,0 +1,151 @@
+library(randomForest)
+library(ggplot2)
+library(dplyr)
+library(tree)
+library(party)
+library(cvTools)
+library(fastDummies)
+library(arulesViz)
+setwd("D:\\Edvancer\\R\\realstate\\project")
+
+ld_train=read.csv("housing_train.csv",stringsAsFactors = F)
+ld_test= read.csv("housing_test.csv",stringsAsFactors = F)
+
+{
+  
+  ld_test$Price = NA #adding the price
+  ld_train$data='train'
+  ld_test$data='test'
+  ld_all = rbind(ld_train,ld_test)
+  
+   #dropping address and and Council Area
+   ld_all$CouncilArea = NULL
+   ld_all$Address=NULL
+   ld_all$Suburb =NULL
+   ld_all$SellerG = NULL
+   ld_all$Method = NULL
+   #ld_all$SellerG <- gsub(" ", "_",  ld_all$SellerG)
+   
+   ld_all$Postcode = as.numeric(ifelse(is.na( ld_all$Postcode), mean( ld_all$Postcode, na.rm = TRUE),  ld_all$Postcode))
+  
+   ld_all$Postcode = ld_all$Postcode - 3000
+   #Creating dummy data
+  # ld_all=dummy_cols(ld_all, select_columns = c('Type','Postcode'),
+   #                  remove_selected_columns = TRUE)
+   
+   CreateDummies=function(data,var,freq_cutoff=0){
+     t=table(data[,var])
+     t=t[t>freq_cutoff]
+     t=sort(t)
+     categories=names(t)[-1]
+     
+     for( cat in categories){
+       name=paste(var,cat,sep="_")
+       name=gsub(" ","",name)
+       name=gsub("-","_",name)
+       name=gsub("\\?","Q",name)
+       name=gsub("<","LT_",name)
+       name=gsub("\\+","",name)
+       name=gsub("\\/","_",name)
+       name=gsub(">","GT_",name)
+       name=gsub("=","EQ_",name)
+       name=gsub(",","",name)
+       
+       data[,name]=as.integer(data[,var]==cat)
+     }
+     
+     data[,var]=NULL
+     return(data)
+   }
+  
+   
+   #Replacing the NA value with mean/median/mode
+  
+  # BedRoomMean = mean(ld_all$Bedroom2, na.rm = TRUE)
+   #BedRoomMean
+   
+   #ld_all <- ld_all %>%
+    # mutate(Bedroom2 = replace(ld_all,ifelse(is.na(Bedroom2), BedRoomMean, ld_all$Bedroom2),Bedroom2))
+   
+
+   #median(ld_all$Bedroom2, na.rm = TRUE)
+   ld_all$Landsize = as.integer(ifelse(is.na( ld_all$Landsize), mean( ld_all$Landsize, na.rm = TRUE),  ld_all$Landsize))
+   ld_all = ld_all %>% mutate(
+     Distance = as.numeric(Distance),
+     Bedroom2 = as.numeric( ifelse(is.na(Bedroom2), mean(Bedroom2, na.rm = TRUE), Bedroom2)),
+     Bathroom = as.numeric(ifelse(is.na(Bathroom), median(Bathroom, na.rm = TRUE), Bathroom)),
+     Car =as.numeric( ifelse(is.na(Car), median(Car, na.rm = TRUE), Car)),
+     Landsize = as.numeric(ifelse(Landsize==0, mean( Landsize, na.rm = TRUE),  Landsize)),
+     BuildingArea = as.numeric(ifelse(is.na(BuildingArea), mean(BuildingArea, na.rm = TRUE), BuildingArea)),
+     YearBuilt = as.numeric(ifelse(is.na(YearBuilt),median(YearBuilt, na.rm = TRUE),YearBuilt))
+     )
+   #ld_all$YearBuilt=as.integer(strptime(as.character(ld_all$YearBuilt), "%Y"))
+   
+   #ld_all$YearBuilt = format(ld_all$YearBuilt, "%Y")
+   ld_all$AgeOfBuilding = (2022-ld_all$YearBuilt)
+   ld_all$YearBuilt = NULL
+ 
+   ld_all=CreateDummies(ld_all ,"Type",1)
+   #ld_all=CreateDummies(ld_all,"Method",100)
+   ld_all=CreateDummies(ld_all,"Postcode",10)
+  }
+
+'glimpse(ld_all)'
+
+
+
+## separate train and test
+{
+  ld_train=ld_all %>% filter(data=='train') %>% select(-data)
+  ld_test=ld_all %>% filter(data=='test') %>% select(-data,-Price)
+  
+  #### 70:30 Train:Test
+  ld_train$data = NULL
+  set.seed(2)
+  s=sample(1:nrow(ld_train),0.5*nrow(ld_train))
+  ld_train1=ld_train[s,]  
+  ld_train2=ld_train[-s,]
+}
+##
+
+
+
+
+'glimpse(ld_train1)
+glimpse(ld_train2)'
+
+
+'### Linear Regression
+ld.tree=lm(ld_train1$Price~ .,data=ld_train1)
+val.IR=predict(ld.tree,newdata = ld_train2)
+rmse_val=((val.IR)-(ld_train2$Price))^2 %>% mean() %>% sqrt()
+rmse_val
+'
+'### Building A Descison Tree
+ld.tree=tree(ld_train1$Price~ .,data=ld_train1)
+val.IR=predict(ld.tree,newdata = ld_train2)
+rmse_val=((val.IR)-(ld_train2$Price))^2 %>% mean() %>% sqrt()
+#rmse_val=((predicted values)-(actual value))^2 %>% mean() %>% sqrt()
+rmse_val
+
+#cTree
+ld.tree=ctree(Price~.,data=ld_train1)
+val.IR=predict(ld.tree,newdata = ld_train1)
+rmse_val=((val.IR)-(ld_train1$Price))^2 %>% mean() %>% sqrt()
+rmse_val'
+
+#RandomForest
+ld.tree=randomForest(Price~.,data=ld_train1)
+val.IR=predict(ld.tree,newdata = ld_train2)
+rmse_val=((val.IR)-(ld_train2$Price))^2 %>% mean() %>% sqrt()
+rmse_val
+
+ld.tree
+
+## Making final model on entire training
+## and prediction on test/production data
+
+'ld.tree.final=ctree(Price~. ,data=ld_train)
+test.pred=predict(ld.tree.final,newdata=ld_test)
+write.csv(test.pred,"mysubmission.csv",row.names = F)'
+
