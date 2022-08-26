@@ -4,6 +4,7 @@ library(ggplot2)
 library(dplyr)
 library(tree)
 library(party)
+library(rpart)
 library(cvTools)
 library(fastDummies)
 library(arulesViz)
@@ -63,6 +64,7 @@ summary(ld_train)
 
 }
 
+#quiz
 {
   var(ld_train$Price)
   sum(is.na(ld_train$YearBuilt))
@@ -252,7 +254,7 @@ summary(ld_train)
    #ld_all=CreateDummies(ld_all ,"BuildingArea",100)
    #ld_all=CreateDummies(ld_all,"Method",100)
    
-  }
+}
 
 glimpse(ld_all)
 
@@ -274,13 +276,49 @@ glimpse(ld_all)
 
 
 #RandomForest
-ld.tree=randomForest(Price~.,data=ld_train1)
-val.IR=predict(ld.tree, newdata = ld_train2)
-rmse_val=((val.IR)-(ld_train2$Price))^2 %>% mean() %>% sqrt()
-rmse_val
- 
-Score =212467/rmse_val
-Score
+{
+  ld.for=randomForest(Price~.,data=ld_train1)
+  val.IR.for=predict(ld.for, newdata = ld_train2)
+  rmse.for=((val.IR.for)-(ld_train2$Price))^2 %>% mean() %>% sqrt()
+  rmse.for
+  
+  Score.for =212467/rmse.for
+  Score.for
+}
+
+#tree
+{
+  ld.tree=rpart(Price~.,data=ld_train1)
+  val.IR.tree=predict(ld.tree, newdata = ld_train2)
+  rmse.tree=((val.IR.tree)-(ld_train2$Price))^2 %>% mean() %>% sqrt()
+  rmse.tree
+  
+  Score.tree =212467/rmse.tree
+  Score.tree
+}
+
+#general linear regression
+{
+  ld.glm=glm(Price~.,data=ld_train1)
+  val.IR.glm=predict(ld.glm, newdata = ld_train2)
+  rmse.glm=((val.IR.glm)-(ld_train2$Price))^2 %>% mean() %>% sqrt()
+  rmse.glm
+  
+  Score.glm =212467/rmse.glm
+  Score.glm
+}
+
+# linear regression
+{
+  ld.lm=lm(Price~.,data=ld_train1)
+  val.IR.lm=predict(ld.lm, newdata = ld_train2)
+  rmse.lm=((val.IR.lm)-(ld_train2$Price))^2 %>% mean() %>% sqrt()
+  rmse.lm
+  
+  Score.lm =212467/rmse.lm
+  Score.lm
+}
+
 
 #ld.tree
 
@@ -304,18 +342,25 @@ ld.rf.final=randomForest(Price~.,
                          data=ld_train)
 
 
-val.IR=predict(ld.rf.final,newdata = ld_train2)
+ld.rf.predect=predict(ld.rf.final,newdata = ld_train2)
 
-rmse_val=((val.IR)-(ld_train2$Price))^2 %>% mean() %>% sqrt()
+rmse_val=((ld.rf.predect)-(ld_train2$Price))^2 %>% mean() %>% sqrt()
 rmse_val
 
 Score =212467/rmse_val 
 Score
 
 
+test.rf.predect=predict(ld.rf.final,newdata = ld_test)
+
+
 ## Making final model on entire training
 ## and prediction on test/production data
 
-ld.tree.final=ctree(Price~. ,data=ld_train)
-test.pred=predict(ld.tree.final,newdata=ld_test)
-write.csv(test.pred,"rajesh_realstate_p2.csv",row.names = F)
+'ld.tree.final=ctree(Price~. ,data=ld_train)
+test.pred=predict(ld.tree.final,newdata=ld_test)'
+
+
+
+
+write.csv(test.rf.predect,"rajesh_khan_P1_part2.csv",row.names = F)
